@@ -1,8 +1,112 @@
-import { Suspense, useRef, useEffect } from "react";
+import { Suspense, useRef, useEffect, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { EncryptedText } from "@/components/ui/encrypted-text";
 import * as THREE from "three";
+
+function LoadingScreen({ progress }: { progress: number }) {
+  return (
+    <div className="loading">
+      <style>{`
+        @import url(https://fonts.googleapis.com/css?family=Quattrocento+Sans);
+
+        .loading {
+          position: fixed;
+          top: 0; left: 0;
+          width: 100%; height: 100%;
+          background: #000;
+          z-index: 9999;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .loading-text {
+          text-align: center;
+          line-height: 100px;
+          height: 100px;
+          margin-bottom: 40px;
+        }
+
+        .loading-text span {
+          display: inline-block;
+          margin: 0 5px;
+          color: #fff;
+          font-family: 'Quattrocento Sans', sans-serif;
+          font-size: 2rem;
+          font-weight: 700;
+          filter: blur(0px);
+        }
+
+        .loading-text span:nth-child(1) { animation: blur-text 1.5s 0s infinite linear alternate; }
+        .loading-text span:nth-child(2) { animation: blur-text 1.5s 0.2s infinite linear alternate; }
+        .loading-text span:nth-child(3) { animation: blur-text 1.5s 0.4s infinite linear alternate; }
+        .loading-text span:nth-child(4) { animation: blur-text 1.5s 0.6s infinite linear alternate; }
+        .loading-text span:nth-child(5) { animation: blur-text 1.5s 0.8s infinite linear alternate; }
+        .loading-text span:nth-child(6) { animation: blur-text 1.5s 1.0s infinite linear alternate; }
+        .loading-text span:nth-child(7) { animation: blur-text 1.5s 1.2s infinite linear alternate; }
+
+        @keyframes blur-text {
+          0%   { filter: blur(0px); }
+          100% { filter: blur(4px); }
+        }
+
+        .progress-container {
+          width: 300px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .progress-bar-bg {
+          width: 100%;
+          height: 3px;
+          background: rgba(255,255,255,0.15);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+
+        .progress-bar-fill {
+          height: 100%;
+          background: #fff;
+          border-radius: 2px;
+          transition: width 0.1s linear;
+        }
+
+        .progress-label {
+          font-family: 'Quattrocento Sans', sans-serif;
+          color: rgba(255,255,255,0.5);
+          font-size: 0.75rem;
+          letter-spacing: 0.15em;
+        }
+
+        .loading-fade-out {
+          animation: fadeOut 0.6s ease forwards;
+        }
+
+        @keyframes fadeOut {
+          from { opacity: 1; }
+          to   { opacity: 0; pointer-events: none; }
+        }
+      `}</style>
+
+      <div className="loading-text">
+        {'LOADING'.split('').map((l, i) => (
+          <span key={i}>{l}</span>
+        ))}
+      </div>
+
+      <div className="progress-container">
+        <div className="progress-bar-bg">
+          <div className="progress-bar-fill" style={{ width: `${progress}%` }} />
+        </div>
+        <span className="progress-label">{Math.round(progress)}%</span>
+      </div>
+    </div>
+  );
+}
 
 function HorrorModel({
   target,
@@ -67,24 +171,51 @@ function HorrorModel({
   );
 }
 
+const LOAD_DURATION = 5000;
+
 export default function App() {
   const target = useRef({ x: 0, y: 0 });
+  const [progress, setProgress] = useState(0);
+  const [done, setDone] = useState(false);
+  const [fadingOut, setFadingOut] = useState(false);
+
+  useEffect(() => {
+    const start = performance.now();
+
+    const tick = () => {
+      const elapsed = performance.now() - start;
+      const pct = Math.min((elapsed / LOAD_DURATION) * 100, 100);
+      setProgress(pct);
+
+      if (pct < 100) {
+        requestAnimationFrame(tick);
+      } else {
+        setFadingOut(true);
+        setTimeout(() => setDone(true), 650);
+      }
+    };
+
+    requestAnimationFrame(tick);
+  }, []);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       target.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
       target.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
-
     document.addEventListener("pointermove", onMove, { capture: true });
-    return () => {
-      document.removeEventListener("pointermove", onMove, { capture: true });
-    };
+    return () => document.removeEventListener("pointermove", onMove, { capture: true });
   }, []);
 
   return (
     <>
       <style>{`* { cursor: none !important; }`}</style>
+
+      {!done && (
+        <div className={fadingOut ? "loading-fade-out" : ""}>
+          <LoadingScreen progress={progress} />
+        </div>
+      )}
 
       <div
         style={{
