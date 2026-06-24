@@ -1,14 +1,13 @@
-import { Suspense, useRef, useEffect, useState } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Suspense, useRef, useEffect } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
+import { EncryptedText } from "@/components/ui/encrypted-text";
 import * as THREE from "three";
 
 function HorrorModel({
   target,
-  frozen,
 }: {
   target: React.MutableRefObject<{ x: number; y: number }>;
-  frozen: React.MutableRefObject<boolean>;
 }) {
   const { scene, animations } = useGLTF("/horror.glb");
   const groupRef = useRef<THREE.Group>(null);
@@ -50,11 +49,7 @@ function HorrorModel({
     if (!groupRef.current) return;
     mixer?.update(delta);
 
-    // completely skip rotation update when frozen
-    if (frozen.current) return;
-
     const MAX_V = (100 / 2) * (Math.PI / 180);
-    // clamp to [0, MAX_V]: mouse above center tilts model forward (look down at it), block upward tilt
     const targetX = THREE.MathUtils.clamp(target.current.y * -MAX_V, 0, MAX_V);
     const targetY = target.current.x * Math.PI;
 
@@ -72,68 +67,18 @@ function HorrorModel({
   );
 }
 
-function ZoomController({ zoom }: { zoom: number }) {
-  const { camera } = useThree();
-  useFrame(() => {
-    (camera as THREE.PerspectiveCamera).position.z = THREE.MathUtils.lerp(
-      (camera as THREE.PerspectiveCamera).position.z,
-      zoom,
-      0.08
-    );
-  });
-  return null;
-}
-
 export default function App() {
   const target = useRef({ x: 0, y: 0 });
-  const frozen = useRef(false);
-  const [zoom] = useState(62);
-  const [cursor, setCursor] = useState("grab");
 
   useEffect(() => {
-    // Read e.buttons directly — 0 = no button held, >0 = button is pressed
-    // This is guaranteed to be correct regardless of event capture/bubble order
     const onMove = (e: PointerEvent) => {
-      const pressed = e.buttons !== 0;
-      frozen.current = pressed;
-
-      if (pressed) {
-        setCursor("grabbing");
-        return; // block ALL rotation updates while any button is held
-      }
-
-      setCursor("grab");
       target.current.x = (e.clientX / window.innerWidth - 0.5) * 2;
       target.current.y = (e.clientY / window.innerHeight - 0.5) * 2;
     };
 
-    // Also freeze immediately on first click (before first move fires)
-    const onDown = () => {
-      frozen.current = true;
-      setCursor("grabbing");
-    };
-    const onUp = () => {
-      frozen.current = false;
-      setCursor("grab");
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-    };
-
-    // capture: true — fires before canvas can intercept
     document.addEventListener("pointermove", onMove, { capture: true });
-    document.addEventListener("pointerdown", onDown, { capture: true });
-    document.addEventListener("pointerup", onUp, { capture: true });
-    document.addEventListener("pointercancel", onUp, { capture: true });
-    window.addEventListener("wheel", onWheel, { passive: false });
-
     return () => {
       document.removeEventListener("pointermove", onMove, { capture: true });
-      document.removeEventListener("pointerdown", onDown, { capture: true });
-      document.removeEventListener("pointerup", onUp, { capture: true });
-      document.removeEventListener("pointercancel", onUp, { capture: true });
-      window.removeEventListener("wheel", onWheel);
     };
   }, []);
 
@@ -145,7 +90,7 @@ export default function App() {
         background: "#111",
         overflow: "hidden",
         position: "relative",
-        cursor,
+        cursor: "url('/harlequin.png') 0 0, auto",
         userSelect: "none",
       }}
     >
@@ -168,10 +113,8 @@ export default function App() {
         <pointLight position={[0, 8, 0]} intensity={1.2} color="#ff4400" decay={2} />
 
         <Suspense fallback={null}>
-          <HorrorModel target={target} frozen={frozen} />
+          <HorrorModel target={target} />
         </Suspense>
-
-        <ZoomController zoom={zoom} />
       </Canvas>
 
       <div
@@ -181,8 +124,9 @@ export default function App() {
           left: "50%",
           transform: "translateX(-50%)",
           display: "flex",
-          gap: 12,
+          flexDirection: "column",
           alignItems: "center",
+          gap: 10,
           whiteSpace: "nowrap",
         }}
       >
@@ -205,15 +149,15 @@ export default function App() {
         >
           ⬇ Download Model (.glb)
         </a>
-        <span
-          style={{
-            color: "rgba(255,255,255,0.4)",
-            fontFamily: "sans-serif",
-            fontSize: 12,
-          }}
-        >
-          Hold to freeze · Scroll to zoom
-        </span>
+
+        <p className="mx-auto max-w-lg py-2 text-left">
+          <EncryptedText
+            text="Made By AMIT"
+            encryptedClassName="text-neutral-500"
+            revealedClassName="dark:text-white text-white"
+            revealDelayMs={50}
+          />
+        </p>
       </div>
     </div>
   );
