@@ -10,9 +10,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
     },
+    dedupe: ["react", "react-dom"],
   },
+  root: path.resolve(import.meta.dirname),
   build: {
-    outDir: "dist",
+    outDir: path.resolve(import.meta.dirname, "dist"),
     emptyOutDir: true,
   },
 });
