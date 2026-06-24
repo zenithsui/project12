@@ -4,6 +4,140 @@ import { useGLTF, useAnimations } from "@react-three/drei";
 import { EncryptedText } from "@/components/ui/encrypted-text";
 import * as THREE from "three";
 
+function useHorrorAmbient(active: boolean) {
+  const ctxRef = useRef<AudioContext | null>(null);
+
+  useEffect(() => {
+    if (!active) return;
+
+    const ctx = new AudioContext();
+    ctxRef.current = ctx;
+
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0, ctx.currentTime);
+    master.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 4);
+    master.connect(ctx.destination);
+
+    // ── 1. Deep rumble drone (two detuned saws) ──────────────────────
+    const droneGain = ctx.createGain();
+    droneGain.gain.value = 0.18;
+    droneGain.connect(master);
+
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.12;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.06;
+    lfo.connect(lfoGain);
+    lfoGain.connect(droneGain.gain);
+    lfo.start();
+
+    [55, 55.35, 27.5].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = i === 2 ? "sine" : "sawtooth";
+      osc.frequency.value = freq;
+      const g = ctx.createGain();
+      g.gain.value = i === 2 ? 0.6 : 0.4;
+      osc.connect(g);
+      g.connect(droneGain);
+      osc.start();
+    });
+
+    // ── 2. Dark filtered noise ────────────────────────────────────────
+    const bufLen = ctx.sampleRate * 6;
+    const noiseBuffer = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuffer;
+    noise.loop = true;
+
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = "lowpass";
+    lpf.frequency.value = 180;
+    lpf.Q.value = 3.5;
+
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.09;
+
+    noise.connect(lpf);
+    lpf.connect(noiseGain);
+    noiseGain.connect(master);
+    noise.start();
+
+    // ── 3. Eerie high-pitch whisper tones ────────────────────────────
+    const whisperGain = ctx.createGain();
+    whisperGain.gain.value = 0.04;
+    whisperGain.connect(master);
+
+    const whisper1 = ctx.createOscillator();
+    whisper1.type = "sine";
+    whisper1.frequency.value = 880;
+    const whisper2 = ctx.createOscillator();
+    whisper2.type = "sine";
+    whisper2.frequency.value = 1108;
+
+    const whisperLfo = ctx.createOscillator();
+    whisperLfo.type = "sine";
+    whisperLfo.frequency.value = 0.07;
+    const whisperLfoGain = ctx.createGain();
+    whisperLfoGain.gain.value = 0.035;
+    whisperLfo.connect(whisperLfoGain);
+    whisperLfoGain.connect(whisperGain.gain);
+    whisperLfo.start();
+
+    [whisper1, whisper2].forEach(w => { w.connect(whisperGain); w.start(); });
+
+    // ── 4. Occasional deep heartbeat thud ────────────────────────────
+    const scheduleThud = () => {
+      if (!ctxRef.current || ctxRef.current.state === "closed") return;
+      const when = ctx.currentTime + 2 + Math.random() * 6;
+
+      const thud = ctx.createOscillator();
+      thud.type = "sine";
+      thud.frequency.setValueAtTime(80, when);
+      thud.frequency.exponentialRampToValueAtTime(20, when + 0.4);
+
+      const thudGain = ctx.createGain();
+      thudGain.gain.setValueAtTime(0.55, when);
+      thudGain.gain.exponentialRampToValueAtTime(0.001, when + 0.5);
+
+      thud.connect(thudGain);
+      thudGain.connect(master);
+      thud.start(when);
+      thud.stop(when + 0.55);
+
+      const delay = 3000 + Math.random() * 8000;
+      setTimeout(scheduleThud, delay);
+    };
+    setTimeout(scheduleThud, 3000);
+
+    // ── 5. Slow pitch-bend on drone for unease ────────────────────────
+    const bendOsc = ctx.createOscillator();
+    bendOsc.type = "triangle";
+    bendOsc.frequency.value = 110;
+    const bendGain = ctx.createGain();
+    bendGain.gain.value = 0.06;
+    bendOsc.connect(bendGain);
+    bendGain.connect(master);
+    bendOsc.start();
+
+    const driftFreq = () => {
+      if (!ctxRef.current || ctxRef.current.state === "closed") return;
+      const target = 100 + Math.random() * 25;
+      bendOsc.frequency.linearRampToValueAtTime(target, ctx.currentTime + 6 + Math.random() * 8);
+      setTimeout(driftFreq, (7 + Math.random() * 9) * 1000);
+    };
+    setTimeout(driftFreq, 4000);
+
+    return () => {
+      ctx.close();
+      ctxRef.current = null;
+    };
+  }, [active]);
+}
+
 function LoadingScreen({ progress }: { progress: number }) {
   return (
     <div className="loading">
@@ -178,6 +312,8 @@ export default function App() {
   const [progress, setProgress] = useState(0);
   const [done, setDone] = useState(false);
   const [fadingOut, setFadingOut] = useState(false);
+
+  useHorrorAmbient(done);
 
   useEffect(() => {
     const start = performance.now();
