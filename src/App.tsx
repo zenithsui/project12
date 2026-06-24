@@ -1,4 +1,4 @@
-import { Suspense, useRef, useEffect, useState } from "react";
+import { Suspense, useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import { EncryptedText } from "@/components/ui/encrypted-text";
@@ -67,80 +67,8 @@ function HorrorModel({
   );
 }
 
-function CustomCursor() {
-  const dotRef = useRef<HTMLDivElement>(null);
-  const ringRef = useRef<HTMLDivElement>(null);
-  const pos = useRef({ x: -100, y: -100 });
-  const ring = useRef({ x: -100, y: -100 });
-  const rafId = useRef<number>(0);
-
-  useEffect(() => {
-    const onMove = (e: PointerEvent) => {
-      pos.current = { x: e.clientX, y: e.clientY };
-    };
-    document.addEventListener("pointermove", onMove, { capture: true });
-
-    const animate = () => {
-      ring.current.x += (pos.current.x - ring.current.x) * 0.12;
-      ring.current.y += (pos.current.y - ring.current.y) * 0.12;
-
-      if (dotRef.current) {
-        dotRef.current.style.transform = `translate(${pos.current.x - 4}px, ${pos.current.y - 4}px)`;
-      }
-      if (ringRef.current) {
-        ringRef.current.style.transform = `translate(${ring.current.x - 14}px, ${ring.current.y - 14}px)`;
-      }
-      rafId.current = requestAnimationFrame(animate);
-    };
-    rafId.current = requestAnimationFrame(animate);
-
-    return () => {
-      document.removeEventListener("pointermove", onMove, { capture: true });
-      cancelAnimationFrame(rafId.current);
-    };
-  }, []);
-
-  return (
-    <>
-      <div
-        ref={dotRef}
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: 8,
-          height: 8,
-          borderRadius: "50%",
-          background: "#ff2200",
-          boxShadow: "0 0 8px 3px rgba(255,34,0,0.8)",
-          pointerEvents: "none",
-          zIndex: 9999,
-          willChange: "transform",
-          animation: "cursorPulse 1.2s ease-in-out infinite",
-        }}
-      />
-      <div
-        ref={ringRef}
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: 28,
-          height: 28,
-          borderRadius: "50%",
-          border: "1.5px solid rgba(255,80,0,0.7)",
-          pointerEvents: "none",
-          zIndex: 9998,
-          willChange: "transform",
-        }}
-      />
-    </>
-  );
-}
-
 export default function App() {
   const target = useRef({ x: 0, y: 0 });
-  const [, setTick] = useState(0);
 
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
@@ -149,7 +77,6 @@ export default function App() {
     };
 
     document.addEventListener("pointermove", onMove, { capture: true });
-    setTick(t => t + 1);
     return () => {
       document.removeEventListener("pointermove", onMove, { capture: true });
     };
@@ -157,13 +84,7 @@ export default function App() {
 
   return (
     <>
-      <style>{`
-        @keyframes cursorPulse {
-          0%, 100% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.5); opacity: 0.6; }
-        }
-        * { cursor: none !important; }
-      `}</style>
+      <style>{`* { cursor: none !important; }`}</style>
 
       <div
         style={{
@@ -215,8 +136,6 @@ export default function App() {
           </p>
         </div>
       </div>
-
-      <CustomCursor />
     </>
   );
 }
